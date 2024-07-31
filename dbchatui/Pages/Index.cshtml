@@ -1,0 +1,406 @@
+﻿@page
+
+@model AZURE_AI.Pages.IndexModel
+
+<style>
+    .panel-heading {
+        padding: 0px;
+    }
+
+    .scrollable-section {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .toggle-icon {
+        cursor: pointer;
+    }
+
+    #screen-one ul li {
+        margin-left: 20px;
+    }
+
+    .column-list {
+        margin-left: 20px;
+    }
+</style>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    $(document).ready(function () {
+        // Event listener for table checkboxes
+        $('.table-checkbox').on('change', function () {
+            const table = $(this).data('table');
+            $(`.column-checkbox[data-table="${table}"]`).prop('checked', $(this).prop('checked'));
+        });
+
+        // Event listener for column checkboxes
+        $('.column-checkbox').on('change', function () {
+            const table = $(this).data('table');
+            const allChecked = $(`.column-checkbox[data-table="${table}"]:checked`).length === $(`.column-checkbox[data-table="${table}"]`).length;
+            $(`.table-checkbox[data-table="${table}"]`).prop('checked', allChecked);
+        });
+
+        // Toggle icon for table columns
+        $('.toggle-icon').on('click', function () {
+            const contentId = $(this).data('target');
+            const content = $(`#${contentId}`);
+            content.toggle();
+            $(this).html(content.is(':visible') ? '&#9660;' : '&#9650;');
+        });
+
+        // Filter icon click handler
+        $('.fas.fa-filter').on('click', function () {
+            var tableName = $(this).data('table');
+            var columns = $(this).data('columns').split(',');
+            var dropdown = $('#modalTableName');
+            dropdown.empty();
+
+            $.each(columns, function (index, column) {
+                dropdown.append($('<option>', {
+                    value: tableName + '.' + column,
+                    text: column
+                }));
+            });
+
+            // Reset to the first tab (filter) when opening the modal
+            $('#filterSortTabContent .tab-pane').removeClass('show active');
+            $('#filter').addClass('show active');
+            $('#filter-tab').addClass('active');
+            $('#sort-tab').removeClass('active');
+
+            // Show filter tab
+            $('#filter-tab').tab('show');
+        });
+
+        // Handle filterRowname change event
+        $('#filterRowname').on('change', function () {
+            var selectedTable = $(this).val();
+            console.log('Selected table:', selectedTable);
+
+            if (selectedTable) {
+                fetch(`/Index?handler=FilterColumns&table=${encodeURIComponent(selectedTable)}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Columns data:', data);
+                        var filterColumnDropdown = $('#filterColumn');
+                        filterColumnDropdown.empty();
+                        filterColumnDropdown.append('<option value="">-- Select a column --</option>');
+                        if (data.columns) {
+                            data.columns.forEach(function (column) {
+                                filterColumnDropdown.append($('<option>', {
+                                    value: column,
+                                    text: column
+                                }));
+                            });
+                        } else {
+                            console.error('No columns data found:', data);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching columns:', error));
+            } else {
+                $('#filterColumn').empty().append('<option value="">-- Select a column --</option>');
+            }
+        });
+
+        // Corrected tab click handling
+        $('#filter-tab, #sort-tab').on('click', function (e) {
+            e.preventDefault();
+            $(this).tab('show'); // This correctly activates the tab
+        });
+
+        // Handle modalTableName change event
+        $('#filterColumn').on('change', function () {
+            var selectedColumn = $(this).val();
+            var selectedTable = $('#filterRowname').val();
+            if (selectedColumn) {
+                fetch(`/Index?handler=FilterValues&columnName=${encodeURIComponent(selectedColumn)}&tableName=${encodeURIComponent(selectedTable)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        var filter2 = $('#filter2');
+                        filter2.empty();
+                        filter2.append('<option value="">-- Select a value --</option>');
+                        if (data.filterValues) {
+                            data.filterValues.forEach(function (value) {
+                                filter2.append($('<option>', {
+                                    value: value,
+                                    text: value
+                                }));
+                            });
+                        } else {
+                            console.error('No values data found:', data);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching values:', error));
+            } else {
+                $('#filter2').empty().append('<option value="">-- Select a value --</option>');
+            }
+        });
+
+
+        $('#submit').on('click', function () {
+            var column = $('sortColumn').val();
+            var order = $('sortOrder').val();
+            if('#sort'){
+                fetch(`/Index?handler=ApplySorting&SortBy=${encodeURIComponent(column)}&OrderBy=${encodeURIComponent(order)}`)
+                .then(data=>{
+                    console.log(data)
+                })
+            }
+        })
+    });
+</script>
+
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mt-4">Chat with your relational database!</h2>
+        <hr />
+        <br />
+    </div>
+
+    <div class="col-md-12">
+        <form method="post" class="form">
+            <div class="form-group mb-3">
+                <h4 for="name">Your Prompt</h4>
+                <textarea type="text" asp-for="@Model.UserPrompt" class="form-control"></textarea>
+            </div>
+            <input type="submit" class="btn btn-success" value="Generate Query" />
+            <input type="hidden" asp-for="LastGeneratedQuery" />
+        </form>
+        <hr />
+
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <p><b>Error:</b> @Model.Error</p>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.Summary))
+        {
+            <p><b>AI generated summary:</b> @Model.Summary</p>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.Query))
+        {
+            <p><b>AI generated query:</b> @Model.Query</p>
+        }
+
+        @if (Model.Data != null)
+        {
+            <p><b>Data results:</b></p>
+            <div class="overflow-scroll">
+                <table class="table table-striped">
+                    @foreach (var row in Model.Data)
+                    {
+                        <tr>
+                            @foreach (var col in row)
+                            {
+                                <td>@col</td>
+                            }
+                        </tr>
+                    }
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mt-4">
+        <div id="screen-one" class="scrollable-section">
+            <h1>Used Tables & Columns</h1>
+            @if (Model.TableColumns != null && Model.TableColumns.Any())
+            {
+                <div>
+                    @foreach (var table in Model.TableColumns)
+                    {
+                        var usedColumns = Model.SelectedColumns
+                        .Where(sc => sc.StartsWith($"{table.Table}."))
+                        .Select(sc => sc.Split('.')[1])
+                        .ToList();
+
+                        if (!usedColumns.Any())
+                        {
+                            usedColumns = table.Columns;
+                        }
+
+                        <div>
+                            <span class="toggle-icon" data-target="@($"columns-for-{table.Table}")">&#9660;</span>
+                            <i class="fas fa-folder"></i> @table.Table
+                            <i class="fas fa-filter" data-toggle="modal" data-target="#filterModal" data-table="@table.Table" data-columns="@string.Join(",", table.Columns)"></i>
+                            <ul id="@($"columns-for-{table.Table}")" style="display: none;">
+                                @foreach (var column in table.Columns)
+                                {
+                                    if (usedColumns.Contains(column))
+                                    {
+                                        <li>
+                                            <i class="fas fa-th"></i> @column
+                                        </li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-md-6 mt-4">
+        <div id="screen-two" class="scrollable-section">
+            <h1>Entire Schema</h1>
+            @if (Model.DatabaseSchema != null)
+            {
+                <form method="post" asp-page-handler="UpdateQuery">
+                    <input type="hidden" name="UserPrompt" value="@Model.UserPrompt" />
+                    <input type="hidden" name="Query" value="@Model.Query" />
+                    <input type="hidden" name="LastGeneratedQuery" value="@Model.LastGeneratedQuery" />
+
+                    @foreach (var table in Model.DatabaseSchema)
+                    {
+                        <div>
+                            @if (Model.Foreign != null && Model.Foreign.Contains(table.TableName))
+                            {
+                                <input type="checkbox" class="table-checkbox" data-table="@table.TableName" />
+                                <i class="fas fa-folder"></i> @table.TableName
+                                <ul class="column-list">
+                                    @foreach (var column in table.Columns)
+                                    {
+                                        bool isColumnUsed = Model.SelectedColumns.Contains($"{table.TableName}.{column}");
+                                        <li>
+                                            <input type="checkbox" name="SelectedColumns" class="column-checkbox" data-table="@table.TableName" data-column="@column" value="@($"{table.TableName}.{column}")" />
+                                            <i class="fas fa-th"></i> @column
+                                            <i class="fas fa-filter" data-toggle="modal" data-target="#filterModal" data-table="@table.TableName" data-columns="@column"></i>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <input type="checkbox" class="table-checkbox" data-table="@table.TableName" />
+                                <i class="fas fa-folder"></i> @table.TableName
+                                <ul class="column-list">
+                                    @foreach (var column in table.Columns)
+                                    {
+                                        bool isColumnUsed = Model.SelectedColumns.Contains($"{table.TableName}.{column}");
+                                        <li>
+                                            <input type="checkbox" name="SelectedColumns" class="column-checkbox" data-table="@table.TableName" data-column="@column" value="@($"{table.TableName}.{column}")" @(isColumnUsed ? "checked" : "") />
+                                            <i class="fas fa-th"></i> @column
+                                            <i class="fas fa-filter" data-toggle="modal" data-target="#filterModal" data-table="@table.TableName" data-columns="@column"></i>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    }
+
+                    <input type="submit" class="btn btn-primary mt-4" value="Update Query" />
+                </form>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" role="dialog" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">Filter & Sort</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="filterSortTabContent">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="filter-tab" href="#filter" data-toggle="tab">Filter</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="sort-tab" href="#sort" data-toggle="tab">Sort</a>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="filter">
+                        <div class="form-group">
+                            <label for="filterRowname">Table</label>
+                            <select id="filterRowname" class="form-control">
+                                <option value="">-- Select a table --</option>
+                                @foreach (var table in Model.DatabaseSchema)
+                                {
+                                    <option value="@table.TableName">@table.TableName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filterColumn">Column</label>
+                            <select id="filterColumn" class="form-control">
+                                <option value="">-- Select a column --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter2">Value</label>
+                            <select id="filter2" class="form-control">
+                                <option value="">-- Select a value --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="sort">
+                        <div class="form-group">
+                            <label for="sortColumn">Column</label>
+                            <select id="sortColumn" class="form-control">
+                                <option value="">-- Select a column --</option>
+                                @if (Model.TableColumns != null && Model.TableColumns.Any())
+                                {
+                                    <div>
+                                        @foreach (var table in Model.TableColumns)
+                                        {
+                                            var usedColumns = Model.SelectedColumns
+                                            .Where(sc => sc.StartsWith($"{table.Table}."))
+                                            .Select(sc => sc.Split('.')[1])
+                                            .ToList();
+
+                                            if (!usedColumns.Any())
+                                            {
+                                                usedColumns = table.Columns;
+                                            }
+
+                                            <div>
+                                                    @foreach (var column in table.Columns)
+                                                    {
+                                                        if (usedColumns.Contains(column))
+                                                    {
+                                                    <option value="@column">@column</option>
+                                                        }
+                                                    }
+                                                
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                               
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="sortOrder">Order</label>
+                            <select id="sortOrder" class="form-control">
+                                <option value="asc">Ascending</option>
+                                <option value="desc">Descending</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="submit">Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
