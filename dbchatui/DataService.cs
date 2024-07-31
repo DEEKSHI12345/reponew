@@ -1,5 +1,6 @@
 ﻿using AZURE_AI.Pages;
 using Microsoft.Data.SqlClient;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -146,6 +147,21 @@ namespace AZURE_AI
 
             //// Assuming sortBy is a valid column name. Implement validation against SQL injection.
             //return $"{originalQuery} ORDER BY {sortBy} {orderBy}";
+        }
+
+        public static string ApplyFiltering(string originalQuery, string tableBy, string columnBy,string value)
+        {
+            bool hasWhere = originalQuery.Contains("WHERE", StringComparison.OrdinalIgnoreCase);
+            if (hasWhere)
+            {
+                return $"{originalQuery} AND {columnBy} = {value}";
+            }
+           else
+            {
+                return $"{originalQuery} WHERE {columnBy} = {value}";
+            }
+            
+            
         }
 
 

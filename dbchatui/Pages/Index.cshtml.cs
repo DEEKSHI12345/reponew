@@ -35,6 +35,13 @@ namespace AZURE_AI.Pages
 
         [BindProperty]
         public string OrderBy { get; set; } = "ASC";
+        [BindProperty]
+        public string TableBy { get; set; } = string.Empty;
+        [BindProperty]
+        public string ColumnBy { get; set; } = string.Empty;
+
+        [BindProperty]
+        public string ValueBy { get; set; } = string.Empty;
 
         [BindProperty]
         public string UserQuery { get; set; }
@@ -78,7 +85,7 @@ namespace AZURE_AI.Pages
             Foreign = targetTables;
         }
 
-        public IActionResult OnPostApplySorting(string SortBy,string OrderBy)
+        public IActionResult OnGetApplySorting(string sortColumn,string sortOrder)
         {
             LoadDatabaseSchema();
 
@@ -86,9 +93,45 @@ namespace AZURE_AI.Pages
             {
                 Query = LastGeneratedQuery;
 
-                
-                Query = DataService.ApplySorting(Query, SortBy, OrderBy);
-                
+
+                if (!string.IsNullOrEmpty(SortBy))
+                {
+                    Query = DataService.ApplySorting(Query, SortBy, OrderBy);
+                }
+
+
+                Data = DataService.GetTable(Query);
+
+                var parsedResult = DataService.ParseQuery(Query);
+                TableColumns = parsedResult.GroupBy(pr => pr.Table).Select(g => new TableColumns
+                {
+                    Table = g.Key,
+                    Columns = g.SelectMany(pr => pr.Columns).Distinct().Select(c => c.Contains('.') ? c.Split('.').Last() : c).ToList()
+                }).ToList();
+
+                LastGeneratedQuery = Query;
+                List<ForeignKeyRelationship> relationships = DataService.GetForeignKeyRelationships(ExtractSourceTableName(Query));
+                List<string> targetTables = relationships.Select(r => r.TargetTable).Distinct().ToList();
+                Foreign = targetTables;
+            }
+
+            return Page();
+        }
+
+        public IActionResult OnPostApplyFiltering(string tableName,string columnName,string value)
+        {
+            LoadDatabaseSchema();
+
+            if (!string.IsNullOrEmpty(LastGeneratedQuery))
+            {
+                Query = LastGeneratedQuery;
+
+
+                if (!string.IsNullOrEmpty(TableBy))
+                {
+                    Query = DataService.ApplyFiltering(Query, TableBy, ColumnBy,ValueBy);
+                }
+
 
                 Data = DataService.GetTable(Query);
 

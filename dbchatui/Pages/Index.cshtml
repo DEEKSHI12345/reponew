@@ -144,17 +144,9 @@
             }
         });
 
+       
 
-        $('#submit').on('click', function () {
-            var column = $('sortColumn').val();
-            var order = $('sortOrder').val();
-            if('#sort'){
-                fetch(`/Index?handler=ApplySorting&SortBy=${encodeURIComponent(column)}&OrderBy=${encodeURIComponent(order)}`)
-                .then(data=>{
-                    console.log(data)
-                })
-            }
-        })
+      
     });
 </script>
 
@@ -328,7 +320,37 @@
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="filter">
-                        <div class="form-group">
+                        <form method="post" asp-page-handler="ApplyFiltering">
+                            <input type="hidden" name="UserPrompt" value="@Model.UserPrompt" />
+                            <input type="hidden" name="Query" value="@Model.Query" />
+                            <input type="hidden" name="LastGeneratedQuery" value="@Model.LastGeneratedQuery" />
+                            <div class="form-group">
+                                <label for="filterRowname">Table</label>
+                                <select asp-for="TableBy" id="filterRowname" class="form-control">
+                                    <option value="">-- Select a table --</option>
+                                    @foreach (var table in Model.DatabaseSchema)
+                                    {
+                                        <option value="@table.TableName">@table.TableName</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="filterColumn">Column</label>
+                                <select asp-for="ColumnBy" id="filterColumn" class="form-control">
+                                    <option value="">-- Select a column --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="filter2">Value</label>
+                                <select asp-for="ValueBy" id="filter2" class="form-control">
+                                    <option value="">-- Select a value --</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Apply</button>
+
+                        </form>
+
+                        @* <div class="form-group">
                             <label for="filterRowname">Table</label>
                             <select id="filterRowname" class="form-control">
                                 <option value="">-- Select a table --</option>
@@ -337,8 +359,8 @@
                                     <option value="@table.TableName">@table.TableName</option>
                                 }
                             </select>
-                        </div>
-                        <div class="form-group">
+                        </div> *@
+                       @*  <div class="form-group">
                             <label for="filterColumn">Column</label>
                             <select id="filterColumn" class="form-control">
                                 <option value="">-- Select a column --</option>
@@ -349,57 +371,36 @@
                             <select id="filter2" class="form-control">
                                 <option value="">-- Select a value --</option>
                             </select>
-                        </div>
+                        </div> *@
                     </div>
                     <div class="tab-pane fade" id="sort">
-                        <div class="form-group">
-                            <label for="sortColumn">Column</label>
-                            <select id="sortColumn" class="form-control">
-                                <option value="">-- Select a column --</option>
-                                @if (Model.TableColumns != null && Model.TableColumns.Any())
-                                {
-                                    <div>
-                                        @foreach (var table in Model.TableColumns)
-                                        {
-                                            var usedColumns = Model.SelectedColumns
-                                            .Where(sc => sc.StartsWith($"{table.Table}."))
-                                            .Select(sc => sc.Split('.')[1])
-                                            .ToList();
+                        <form method="post" asp-page-handler="ApplySorting">
+                            <input type="hidden" name="UserPrompt" value="@Model.UserPrompt" />
+                            <input type="hidden" name="Query" value="@Model.Query" />
+                            <input type="hidden" name="LastGeneratedQuery" value="@Model.LastGeneratedQuery" />
 
-                                            if (!usedColumns.Any())
-                                            {
-                                                usedColumns = table.Columns;
-                                            }
+                            <div class="form-group">
+                                <label for="sortBy">Sort By:</label>
+                                <select asp-for="SortBy" class="form-control" id="modalTableName">
+                                </select>
+                            </div>
 
-                                            <div>
-                                                    @foreach (var column in table.Columns)
-                                                    {
-                                                        if (usedColumns.Contains(column))
-                                                    {
-                                                    <option value="@column">@column</option>
-                                                        }
-                                                    }
-                                                
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                               
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="sortOrder">Order</label>
-                            <select id="sortOrder" class="form-control">
-                                <option value="asc">Ascending</option>
-                                <option value="desc">Descending</option>
-                            </select>
-                        </div>
+                            <div class="form-group">
+                                <label for="orderBy">Order:</label>
+                                <select asp-for="OrderBy" class="form-control">
+                                    <option value="ASC">Ascending</option>
+                                    <option value="DESC">Descending</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Apply</button>
+                        </form>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="submit">Apply</button>
+                <button type="submit" class="btn btn-primary" id="submit">Apply</button>
             </div>
         </div>
     </div>
